@@ -1,0 +1,171 @@
+Metadata-Version: 2.4
+Name: ipl-smart-bets-bot
+Version: 0.1.0
+Summary: Telegram bot and FastAPI backend for IPL value betting decisions.
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: apscheduler>=3.10.4
+Requires-Dist: fastapi>=0.115.0
+Requires-Dist: joblib>=1.4.2
+Requires-Dist: numpy>=2.1.2
+Requires-Dist: pydantic-settings>=2.5.2
+Requires-Dist: python-telegram-bot>=21.6
+Requires-Dist: requests>=2.32.3
+Requires-Dist: scikit-learn>=1.5.2
+Requires-Dist: sqlalchemy>=2.0.36
+Requires-Dist: uvicorn[standard]>=0.32.0
+Requires-Dist: xgboost>=3.0.0
+
+# IPL Smart Bets Bot
+
+This project is a starter implementation of an IPL smart betting assistant:
+
+- Telegram bot for user-facing commands
+- FastAPI backend for predictions and bet logging
+- Historical IPL ingestion from Cricsheet
+- Trainable logistic regression and optional XGBoost model selection
+- Feature engine for form, head-to-head, venue, toss, lineups, and batter-vs-bowler matchups
+- Value engine that compares model probability with market odds
+- Persistent storage for bankroll, bets, and ROI tracking
+- Live IPL match listing via configurable CricketData/CricAPI-style provider
+- Scheduler hooks for data refresh and retraining jobs
+
+Important: this does not guarantee profit. It is a decision-support system for evaluating value opportunities.
+
+## Architecture
+
+```text
+Telegram User
+  -> Telegram Bot
+  -> FastAPI Backend
+  -> Prediction Service
+  -> Value Engine
+  -> Database
+  -> Scheduler
+```
+
+## Features
+
+- `/predict` computes win probability, implied probability, value, Kelly stake, and a suggested action
+- `/enter` records a simulated entry
+- `/roi` shows bankroll, open bets, settled bets, and ROI
+- `/model` shows training status and model metrics
+- `/train` downloads fresh IPL history and rebuilds the model artifact
+- `/matches` lists live IPL matches when a live API key is configured
+- `/help` explains supported command formats
+- `POST /predict` exposes the same decision engine for external clients
+- `POST /bets/enter` stores a new simulated bet
+- `POST /model/train` retrains the model from the API
+- `GET /live/matches` lists current IPL matches from the configured provider
+
+## Quick Start
+
+1. Create a virtual environment.
+2. Install dependencies:
+
+```bash
+pip install -e .
+```
+
+3. Copy the environment file:
+
+```bash
+copy .env.example .env
+```
+
+4. Fill in `TELEGRAM_BOT_TOKEN`.
+5. Run the API:
+
+```bash
+uvicorn app.main:app --reload
+```
+
+6. Optional local polling mode for Telegram:
+
+```bash
+python -m app.bot_polling
+```
+
+7. Train the first model:
+
+```bash
+python -m app.train_model
+```
+
+## Telegram Commands
+
+Commands accept `key=value` pairs.
+
+### `/predict`
+
+```text
+/predict team=MI opponent=CSK odds=2.10 venue=Chennai toss_winner=CSK toss_decision=field team_players=Rohit;Surya;Tilak;Hardik;TimDavid opponent_players=Gaikwad;Conway;Dube;Jadeja;Pathirana
+```
+
+### `/enter`
+
+```text
+/enter team=MI opponent=CSK odds=2.10 stake=450 probability=0.58 market=match_winner
+```
+
+### `/roi`
+
+```text
+/roi
+```
+
+### `/model`
+
+```text
+/model
+```
+
+### `/train`
+
+```text
+/train
+```
+
+## API Examples
+
+### Health
+
+```bash
+curl http://127.0.0.1:8000/health
+```
+
+### Prediction
+
+```bash
+curl -X POST http://127.0.0.1:8000/predict ^
+  -H "Content-Type: application/json" ^
+  -d "{\"team\":\"MI\",\"opponent\":\"CSK\",\"odds\":2.10,\"venue\":\"Chennai\",\"toss_winner\":\"CSK\",\"toss_decision\":\"field\",\"team_players\":[\"Rohit Sharma\",\"Suryakumar Yadav\",\"Tilak Varma\",\"Hardik Pandya\"],\"opponent_players\":[\"Ruturaj Gaikwad\",\"Shivam Dube\",\"Ravindra Jadeja\",\"Matheesha Pathirana\"]}"
+```
+
+### Train Model
+
+```bash
+curl -X POST "http://127.0.0.1:8000/model/train?refresh_data=true"
+```
+
+### Live IPL Matches
+
+```bash
+curl http://127.0.0.1:8000/live/matches
+```
+
+## Production Notes
+
+- Railway deployment can point `DATABASE_URL` to PostgreSQL without code changes.
+- Telegram can run through webhook mode by setting `TELEGRAM_WEBHOOK_URL`.
+- Historical IPL training data is downloaded from Cricsheet into `data/ipl/ipl_json.zip`.
+- The trained model artifact is stored at `artifacts/model_bundle.joblib`.
+- The live match provider is configurable with `CRICKET_DATA_API_KEY` and `CRICKET_DATA_BASE_URL`.
+
+## Next Upgrades
+
+- Live odds ingestion
+- Richer venue-condition features such as pace vs spin bias
+- Player-role awareness using squad metadata from a live provider
+- Bet exit execution based on market movement
+- Dashboard for bankroll, strike rate, and value capture
